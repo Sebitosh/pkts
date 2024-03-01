@@ -1,9 +1,7 @@
 package io.pkts.streams.impl;
 
-import io.pkts.packet.Packet;
-import io.pkts.packet.TCPPacket;
-import io.pkts.packet.IPPacket;
-import io.pkts.packet.PacketParseException;
+import io.pkts.frame.PcapGlobalHeader;
+import io.pkts.packet.*;
 
 import io.pkts.frame.Frame;
 import io.pkts.framer.FramerManager;
@@ -43,18 +41,6 @@ import org.slf4j.LoggerFactory;
  */
 public class TcpStreamHandler implements StreamHandler {
 
-    private class FiveTuple{
-        public String sourceAddress;
-        public String destinationAddress;
-        public int sourcePort;
-        public int destinationPort;
-        public FiveTuple(String sourceAddress, String destinationAddress, int sourcePort, int destinationPort){
-            this.sourceAddress = sourceAddress;
-            this.destinationAddress = destinationAddress;
-            this.sourcePort = sourcePort;
-            this.destinationPort = destinationPort;
-        }
-    }
 
     private final static Logger logger = LoggerFactory.getLogger(TcpStreamHandler.class);
 
@@ -65,6 +51,8 @@ public class TcpStreamHandler implements StreamHandler {
     private FragmentListener fragmentListener;
 
     private final Map<StreamId, TcpStream> tcpStreams = new HashMap<StreamId, TcpStream>();
+
+    private final Map<StreamId, TcpStream> terminatedTcpStreams = new HashMap<StreamId, TcpStream>();
 
     public TcpStreamHandler() {
         this.framerManager = FramerManager.getInstance();
@@ -114,6 +102,10 @@ public class TcpStreamHandler implements StreamHandler {
         return this.tcpStreams;
     }
 
+    public Map<StreamId, ? extends Stream> getTerminatedStreams() {
+        return this.terminatedTcpStreams;
+    }
+
     @Override
     public boolean nextPacket(Packet packet) throws IOException {
         try {
@@ -135,7 +127,8 @@ public class TcpStreamHandler implements StreamHandler {
                 }
             }
 
-            if (packet.hasProtocol(Protocol.TCP)){
+            if (packet.hasProtocol(Protocol.TCP) &&
+                    (packet.hasProtocol(Protocol.IPv4) || packet.hasProtocol(Protocol.IPv6))) {
                 this.processFrame(packet);
             }
 
@@ -147,7 +140,48 @@ public class TcpStreamHandler implements StreamHandler {
     }
 
     public void processFrame(final Packet frame) throws PacketParseException {
-        //TODO:call streamListeners, define streams
+        try {
+            final IPPacket ipPacket =
+                    frame.hasProtocol(Protocol.IPv4) ?
+                            (IPv4Packet) frame.getPacket(Protocol.IPv4)
+                            : (frame.hasProtocol(Protocol.IPv6) ? (IPv6Packet) frame.getPacket(Protocol.IPv6) : null);
+
+            final TCPPacket tcpPacket = (TCPPacket) frame.getPacket(Protocol.TCP);
+
+            if (ipPacket == null || tcpPacket == null){
+                throw new NullPointerException("tcp or ip packet was null when processed");
+            }
+
+            // set five tuple, ie retrieve addresses and ports, and set protocol to TCP
+            final TransportStreamId pktStreamId = new TransportStreamId(ipPacket.getSourceIP(),
+                    ipPacket.getDestinationIP(),
+                    tcpPacket.getSourcePort(),
+                    tcpPacket.getDestinationPort(),
+                    Protocol.TCP);
+
+            TcpStream stream = tcpStreams.get(pktStreamId);
+            stream = (stream == null) ? tcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
+
+            if (stream == null) {
+
+                PcapGlobalHeader header = assignGlobalHeader(frame);
+                stream = new DefaultTcpStream(header, pktStreamId);
+                // add packet to stream's packet set when method to add packet exist
+                // or don't, RTP does not but SIP does it. Maybe leave it to a listener to add the packet or not ?
+                this.tcpStreams.put(pktStreamId, stream);
+                this.notifyStartStream(stream, tcpPacket);
+                // check if FIN or RST
+
+            } else {
+                this.notifyPacketReceived(stream, tcpPacket);
+                // check if SYN, FIN or RST
+            }
+
+
+
+        } catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
 
@@ -161,5 +195,42 @@ public class TcpStreamHandler implements StreamHandler {
             logger.warn("Exception thrown by FragmentListener when processing the IP frame", t);
         }
         return null;
+    }
+
+    private void notifyStartStream(final TcpStream stream, final TCPPacket pkt) {
+        if (this.tcpListener != null) {
+            this.tcpListener.startStream(stream, pkt);
+        }
+    }
+
+    private void notifyPacketReceived(final TcpStream stream, final TCPPacket pkt) {
+        if (this.tcpListener != null) {
+            this.tcpListener.packetReceived(stream, pkt);
+        }
+    }
+
+    private void notifyEndStream(final TcpStream stream) {
+        if (this.tcpListener != null) {
+            this.tcpListener.endStream(stream);
+        }
+    }
+
+    private PcapGlobalHeader assignGlobalHeader(Packet frame) throws PacketParseException{
+        PcapGlobalHeader header = null;
+        try {
+            if (frame.hasProtocol(Protocol.SLL)) {
+                header = PcapGlobalHeader.createDefaultHeader(Protocol.SLL);
+            } else if (frame.hasProtocol(Protocol.ETHERNET_II)) {
+                header = PcapGlobalHeader.createDefaultHeader(Protocol.ETHERNET_II);
+            } else {
+                throw new PacketParseException(0, "Unable to create the PcapGlobalHeader because the "
+                        + "link type isn't recognized. Currently only Ethernet II "
+                        + "and Linux SLL (linux cooked capture) are implemented");
+            }
+
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+        return header;
     }
 }

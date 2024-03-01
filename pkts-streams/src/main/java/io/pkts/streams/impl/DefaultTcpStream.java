@@ -18,17 +18,17 @@ public class DefaultTcpStream implements TcpStream {
 
     private final PcapGlobalHeader globalHeader;
 
-    private final LongStreamId id;
+    private final TransportStreamId id;
 
     private final NavigableSet<TCPPacket> packets;
 
-    public DefaultTcpStream(PcapGlobalHeader globalHeader, LongStreamId id){
+    public DefaultTcpStream(PcapGlobalHeader globalHeader, TransportStreamId id){
         this.globalHeader = globalHeader;
         this.id = id;
         this.packets = new TreeSet<TCPPacket>();
     }
     @Override
-    public List getPackets() {
+    public List<TCPPacket> getPackets() {
         return new ArrayList<TCPPacket>(this.packets);
     }
 
@@ -67,26 +67,22 @@ public class DefaultTcpStream implements TcpStream {
 
     @Override
     public String getSrcAddr() {
-        //TODO
-        return null;
+        return id.getSourceAddress();
     }
 
     @Override
     public String getDestAddr() {
-        //TODO
-        return null;
+        return id.getDestinationAddress();
     }
 
     @Override
     public int getSrcPort() {
-        //TODO
-        return 0;
+        return id.getSourcePort();
     }
 
     @Override
     public int getDestPort() {
-        //TODO
-        return 0;
+        return id.getDestinationPort();
     }
 
     @Override
