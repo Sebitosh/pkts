@@ -10,13 +10,11 @@ import io.pkts.streams.impl.TransportStreamId;
 import static io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState.*;
 
 public class TcpStreamFSM{
-
+    public final static Definition<TcpState, TcpStreamContext, TcpStreamData> definition;
     public enum TcpState{
         INIT, HANDSHAKE, ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2,
         CLOSING_1_CLOSING_2, CLOSED_1_CLOSING_2, CLOSING_1_CLOSED_2, CLOSED
     }
-
-    public final static Definition<TcpState, TcpStreamContext, TcpStreamData> definition;
 
     static {
         final FSMBuilder<TcpState, TcpStreamContext, TcpStreamData> builder=
@@ -28,53 +26,56 @@ public class TcpStreamFSM{
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> init = builder.withInitialState(INIT);
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> handshake = builder.withState(HANDSHAKE);
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> established = builder.withState(ESTABLISHED);
-        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> fin_wait_1 = builder.withState(FIN_WAIT_1);
-        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> fin_wait_2 = builder.withState(FIN_WAIT_2);
-        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closing_1_closing_2 = builder.withState(CLOSING_1_CLOSING_2);
-        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed_1_closing_2 = builder.withState(CLOSED_1_CLOSING_2);
-        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closing_1_closed_2 = builder.withState(CLOSING_1_CLOSED_2);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> finWait1 = builder.withState(FIN_WAIT_1);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> finWait2 = builder.withState(FIN_WAIT_2);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closing1Closing2 = builder.withState(CLOSING_1_CLOSING_2);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed1Closing2 = builder.withState(CLOSED_1_CLOSING_2);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closing1Closed2 = builder.withState(CLOSING_1_CLOSED_2);
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed = builder.withFinalState(CLOSED);
 
         // define all transitions
         init.transitionTo(HANDSHAKE).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
         init.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket);
         init.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        init.transitionTo(ESTABLISHED).asDefaultTransition();
+        init.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
         handshake.transitionToSelf().onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
         handshake.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         handshake.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        handshake.transitionTo(ESTABLISHED).asDefaultTransition();
+        handshake.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
         established.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket); // skipped the end of stream, New stream noticed
-        established.transitionToSelf().asDefaultTransition();
+        established.transitionToSelf().onEvent(TCPPacket.class);
 
-        fin_wait_1.transitionTo(FIN_WAIT_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1); // if first fin has been acked
-        fin_wait_1.transitionTo(CLOSING_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2);
-        fin_wait_1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        fin_wait_1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
-        fin_wait_1.transitionToSelf().asDefaultTransition();
+        finWait1.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::ackOfFin1AndFin2).withAction(TcpStreamFSM::closeFin1SetFin2); // special case FIN + ACKofFin1 packet
+        finWait1.transitionTo(FIN_WAIT_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1); // if first fin has been acked
+        finWait1.transitionTo(CLOSING_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2);
+        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
+        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        finWait1.transitionToSelf().onEvent(TCPPacket.class);
 
-        fin_wait_2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2); // 2nd fin observed
-        fin_wait_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        fin_wait_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
-        fin_wait_2.transitionToSelf().asDefaultTransition();
+        finWait2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2); // 2nd fin observed
+        finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
+        finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        finWait2.transitionToSelf().onEvent(TCPPacket.class);
 
-        closing_1_closing_2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
-        closing_1_closing_2.transitionTo(CLOSING_1_CLOSED_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
-        closing_1_closing_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closing_1_closing_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
-        closing_1_closing_2.transitionToSelf().asDefaultTransition();
+        closing1Closing2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
+        closing1Closing2.transitionTo(CLOSING_1_CLOSED_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
+        closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
+        closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
-        closed_1_closing_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
-        closed_1_closing_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closed_1_closing_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
+        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
+        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closed1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
-        closing_1_closed_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
-        closing_1_closed_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closing_1_closed_2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
+        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
+        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closed2.transitionToSelf().onEvent(TCPPacket.class);
 
 
         definition = builder.build();
@@ -89,7 +90,7 @@ public class TcpStreamFSM{
     }
 
     private static boolean isSecondFinPacket(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){ // check if FIN segment comes from the second party
-        return packet.isFIN() && (!data.getFIN_1_id().equals(new TransportStreamId(packet))); // is it a FIN segment AND not comming from the same direction as FIN_1
+        return packet.isFIN() && (!data.getFIN_1_id().equals(new TransportStreamId(packet))); // is it a FIN segment AND not coming from the same direction as FIN_1
     }
 
     private static boolean isRstPacket(TCPPacket packet){
@@ -136,5 +137,14 @@ public class TcpStreamFSM{
             return false;
         }
         else return data.getFIN_2_seq() < packet.getAcknowledgementNumber();
+    }
+
+    private static boolean ackOfFin1AndFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
+        return isAckOfFin1(packet, ctx, data) && isSecondFinPacket(packet, ctx, data);
+    }
+
+    private static void closeFin1SetFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
+        closeFin1(packet, ctx, data);
+        setFin2(packet, ctx, data);
     }
 }
