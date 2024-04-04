@@ -39,42 +39,42 @@ public class TcpStreamFSM{
         init.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         init.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
+        handshake.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         handshake.transitionToSelf().onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
         handshake.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
-        handshake.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         handshake.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
-        established.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket); // skipped the end of stream, New stream noticed
+        established.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         established.transitionToSelf().onEvent(TCPPacket.class);
 
+        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
+        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
         finWait1.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::ackOfFin1AndFin2).withAction(TcpStreamFSM::closeFin1SetFin2); // special case FIN + ACKofFin1 packet
         finWait1.transitionTo(FIN_WAIT_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1); // if first fin has been acked
         finWait1.transitionTo(CLOSING_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2);
-        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
         finWait1.transitionToSelf().onEvent(TCPPacket.class);
 
-        finWait2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2); // 2nd fin observed
         finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        finWait2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2); // 2nd fin observed
         finWait2.transitionToSelf().onEvent(TCPPacket.class);
 
-        closing1Closing2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
-        closing1Closing2.transitionTo(CLOSING_1_CLOSED_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closing2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
+        closing1Closing2.transitionTo(CLOSING_1_CLOSED_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closing1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
-        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closed1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
-        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
         closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
         closing1Closed2.transitionToSelf().onEvent(TCPPacket.class);
 
 
