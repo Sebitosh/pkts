@@ -1,5 +1,8 @@
 package io.pkts.streams;
 
+import io.pkts.packet.TCPPacket;
+import io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState;
+
 public interface TcpStream extends Stream {
     // What do I want here ?
     // Probably layer 3 information
@@ -14,10 +17,11 @@ public interface TcpStream extends Stream {
 
     public int getDestPort();
 
+    void addPacket(TCPPacket packet);
+
+    TcpState getState();
+
+    long getUuid();
+
     public boolean ended();
-    public boolean endedGracefully();
-
-    public boolean endedAbruptly();
-
-
 }

@@ -1,5 +1,6 @@
 package io.pkts.streams.impl;
 
+import io.hektor.fsm.TransitionListener;
 import io.pkts.frame.PcapGlobalHeader;
 import io.pkts.packet.*;
 
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +26,7 @@ import io.pkts.streams.StreamId;
 import io.pkts.streams.TcpStream;
 
 
+import io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +44,21 @@ import org.slf4j.LoggerFactory;
  */
 public class TcpStreamHandler implements StreamHandler {
 
+    /**
+    * Class implementing a {@link TransitionListener} to check if a stream closes due to a new SYN packet
+    *  in which case a new stream has to be started from that same closing SYN packet.
+    * */
+    private class SynListener implements TransitionListener<TcpState>{
+        @Override
+        public void onTransition(TcpState currentState, TcpState toState, Object o) {
+            if (!(o instanceof TCPPacket)){
+                throw new RuntimeException("Object passed to TcpFSM is of Class: " + o.getClass());
+            } else if (toState == TcpState.CLOSED && ((TCPPacket) o).isSYN()) {
+                startNewStream((TCPPacket) o);
+            }
+        }
+    }
+
 
     private final static Logger logger = LoggerFactory.getLogger(TcpStreamHandler.class);
 
@@ -50,9 +68,12 @@ public class TcpStreamHandler implements StreamHandler {
 
     private FragmentListener fragmentListener;
 
-    private final Map<StreamId, TcpStream> tcpStreams = new HashMap<StreamId, TcpStream>();
-
-    private final Map<StreamId, TcpStream> terminatedTcpStreams = new HashMap<StreamId, TcpStream>();
+    // This map is for looking up what streams are open and attribute packets to them
+    private final Map<StreamId, TcpStream> openTcpStreams = new HashMap<StreamId, TcpStream>();
+    
+    // This map is for the user to recover all streams
+    private final Map<StreamId, TcpStream> streams = new LinkedHashMap<StreamId, TcpStream>();
+    private int uuid_counter = 0;
 
     public TcpStreamHandler() {
         this.framerManager = FramerManager.getInstance();
@@ -99,11 +120,7 @@ public class TcpStreamHandler implements StreamHandler {
 
     @Override
     public Map<StreamId, ? extends Stream> getStreams() {
-        return this.tcpStreams;
-    }
-
-    public Map<StreamId, ? extends Stream> getTerminatedStreams() {
-        return this.terminatedTcpStreams;
+        return this.streams;
     }
 
     @Override
@@ -152,29 +169,20 @@ public class TcpStreamHandler implements StreamHandler {
                 throw new NullPointerException("tcp or ip packet was null when processed");
             }
 
-            // set five tuple, ie retrieve addresses and ports, and set protocol to TCP
-            final TransportStreamId pktStreamId = new TransportStreamId(ipPacket.getSourceIP(),
-                    ipPacket.getDestinationIP(),
-                    tcpPacket.getSourcePort(),
-                    tcpPacket.getDestinationPort(),
-                    Protocol.TCP);
+            final TransportStreamId pktStreamId = new TransportStreamId(tcpPacket);
 
-            TcpStream stream = tcpStreams.get(pktStreamId);
-            stream = (stream == null) ? tcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
+            TcpStream stream = openTcpStreams.get(pktStreamId);
+            stream = (stream == null) ? openTcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
 
             if (stream == null) {
-
-                PcapGlobalHeader header = assignGlobalHeader(frame);
-                stream = new DefaultTcpStream(header, pktStreamId);
-                // add packet to stream's packet set when method to add packet exist
-                // or don't, RTP does not but SIP does it. Maybe leave it to a listener to add the packet or not ?
-                this.tcpStreams.put(pktStreamId, stream);
-                this.notifyStartStream(stream, tcpPacket);
-                // check if FIN or RST
-
+                startNewStream(tcpPacket);
             } else {
+                stream.addPacket(tcpPacket);
                 this.notifyPacketReceived(stream, tcpPacket);
-                // check if SYN, FIN or RST
+                TcpState streamState = stream.getState();
+                if (streamState == TcpState.CLOSED){
+                    endStream(stream);
+                }
             }
 
 
@@ -232,5 +240,22 @@ public class TcpStreamHandler implements StreamHandler {
             e.printStackTrace();
         }
         return header;
+    }
+
+    private void startNewStream(TCPPacket packet){
+        TransportStreamId pktStreamId = new TransportStreamId(packet);
+
+        PcapGlobalHeader header = assignGlobalHeader(packet.getParentPacket().getParentPacket());
+        TcpStream stream = new DefaultTcpStream(header, pktStreamId, uuid_counter++, new SynListener());
+
+        this.openTcpStreams.put(pktStreamId, stream);
+        this.streams.put(new LongStreamId(stream.getUuid()), stream);
+        stream.addPacket(packet);
+        this.notifyStartStream(stream, packet);
+    }
+
+    private void endStream(TcpStream stream){
+        openTcpStreams.remove(stream.getStreamIdentifier(), stream);
+        this.notifyEndStream(stream);
     }
 }
