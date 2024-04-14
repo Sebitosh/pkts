@@ -34,46 +34,46 @@ public class TcpStreamFSM{
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed = builder.withFinalState(CLOSED);
 
         // define all transitions
-        init.transitionTo(HANDSHAKE).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        init.transitionTo(HANDSHAKE).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket).withAction(TcpStreamFSM::setSyn1);
         init.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket);
         init.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         init.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
         handshake.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        handshake.transitionToSelf().onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        handshake.transitionToSelf().onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket).withAction(TcpStreamFSM::setSyn2);
         handshake.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         handshake.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
         established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket); // skipped the end of stream, New stream noticed
+        established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket); // skipped the end of stream, New stream noticed
         established.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         established.transitionToSelf().onEvent(TCPPacket.class);
 
         finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         finWait1.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::ackOfFin1AndFin2).withAction(TcpStreamFSM::closeFin1SetFin2); // special case FIN + ACKofFin1 packet
         finWait1.transitionTo(FIN_WAIT_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1); // if first fin has been acked
         finWait1.transitionTo(CLOSING_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2);
         finWait1.transitionToSelf().onEvent(TCPPacket.class);
 
         finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         finWait2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2); // 2nd fin observed
         finWait2.transitionToSelf().onEvent(TCPPacket.class);
 
         closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closing1Closing2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
         closing1Closing2.transitionTo(CLOSING_1_CLOSED_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closing1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
         closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closed1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
         closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket);
+        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
         closing1Closed2.transitionToSelf().onEvent(TCPPacket.class);
 
@@ -90,7 +90,7 @@ public class TcpStreamFSM{
     }
 
     private static boolean isSecondFinPacket(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){ // check if FIN segment comes from the second party
-        return packet.isFIN() && (!data.getFIN_1_id().equals(new TransportStreamId(packet))); // is it a FIN segment AND not coming from the same direction as FIN_1
+        return packet.isFIN() && (!data.getFin1Id().equals(new TransportStreamId(packet))); // is it a FIN segment AND not coming from the same direction as FIN_1
     }
 
     private static boolean isRstPacket(TCPPacket packet){
@@ -98,45 +98,45 @@ public class TcpStreamFSM{
     }
 
     private static void setFin1(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
-        data.setFIN_1_seq(packet);
+        data.setFin1Seq(packet);
     }
 
     private static void setFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
-        data.setFIN_2_seq(packet);
+        data.setFin2Seq(packet);
     }
 
     private static void closeFin1(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
-        data.terminateFIN_1();
+        data.terminateFin1();
     }
 
     private static void closeFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
-        data.terminateFIN_2();
+        data.terminateFin2();
     }
 
     private static boolean isAckOfFin1(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
         if (!packet.isACK()){ // check Ack flag is set
             return false;
         }
-        else if (data.isFIN_1_Terminated()){ // if side 1 is already closed
+        else if (data.isFin1Terminated()){ // if side 1 is already closed
             return false;
         }
-        else if(!data.getFIN_1_id().equals((new TransportStreamId(packet).oppositeFlowDirection()))){ // ack has to come from opposite party
+        else if(!data.getFin1Id().equals((new TransportStreamId(packet).oppositeFlowDirection()))){ // ack has to come from opposite party
             return false;
         }
-        else return data.getFIN_1_seq() < packet.getAcknowledgementNumber();
+        else return data.getFin1Seq() < packet.getAcknowledgementNumber();
     }
 
     private static boolean isAckOfFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
         if (!packet.isACK()){ // check Ack flag is set
             return false;
         }
-        else if (data.isFIN_2_Terminated()){ // if side 2 is already closed
+        else if (data.isFin2Terminated()){ // if side 2 is already closed
             return false;
         }
-        else if(!data.getFIN_2_id().equals((new TransportStreamId(packet).oppositeFlowDirection()))){ // ack has to come from opposite party
+        else if(!data.getFin2Id().equals((new TransportStreamId(packet).oppositeFlowDirection()))){ // ack has to come from opposite party
             return false;
         }
-        else return data.getFIN_2_seq() < packet.getAcknowledgementNumber();
+        else return data.getFin2Seq() < packet.getAcknowledgementNumber();
     }
 
     private static boolean ackOfFin1AndFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
@@ -146,5 +146,29 @@ public class TcpStreamFSM{
     private static void closeFin1SetFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
         closeFin1(packet, ctx, data);
         setFin2(packet, ctx, data);
+    }
+
+    private static boolean isNewSynPacket(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
+        return isSynPacket(packet) && !isSynDuplicate(packet, ctx, data);
+    }
+
+    // special case where a SYN packet is a retransmitted packet, which means we need to ignore it
+    // instead of closing the stream
+    private static boolean isSynDuplicate(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
+        long seqSynNum = packet.getSequenceNumber();
+        TransportStreamId packetStreamId = new TransportStreamId(packet);
+
+        return (seqSynNum == data.getSyn1Seq() && packetStreamId.equals(data.getSyn1Id()))
+                || (seqSynNum == data.getSyn2Seq() && packetStreamId.equals(data.getSyn2Id()));
+    }
+
+    private static void setSyn1(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
+        data.setSyn1Seq(packet);
+    }
+
+    private static void setSyn2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
+        if (!isSynDuplicate(packet, ctx, data)){
+            data.setSyn2Seq(packet);
+        }
     }
 }

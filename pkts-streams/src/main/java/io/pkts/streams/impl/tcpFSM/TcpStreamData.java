@@ -5,57 +5,86 @@ import io.pkts.packet.TCPPacket;
 import io.pkts.streams.impl.TransportStreamId;
 
 public class TcpStreamData implements Data {
-    private long FIN_1_seq;
-    private TransportStreamId FIN_1_id;
-    private boolean is_FIN_1_terminated;
-    private long FIN_2_seq;
-    private TransportStreamId FIN_2_id;
-    private boolean is_FIN_2_terminated;
+    private long syn1Seq = -1; // in most cases base sequence number
+    private long syn2Seq = -1; // in case of two way SYN
+    private long fin1Seq;
+    private long fin2Seq;
 
-    public TcpStreamData(){
-        this.is_FIN_1_terminated = false;
-        this.is_FIN_2_terminated = false;
+    private TransportStreamId syn1Id;
+    private TransportStreamId syn2Id;
+    private TransportStreamId fin1Id;
+    private TransportStreamId fin2Id;
+    private boolean isFin1Terminated = false;
+    private boolean isFin2Terminated = false;
+
+
+    public TcpStreamData(){}
+
+    public void setFin1Seq(TCPPacket packet) {
+        this.fin1Seq = packet.getSequenceNumber();
+        this.fin1Id = new TransportStreamId(packet);
     }
 
-    public void setFIN_1_seq(TCPPacket packet) {
-        this.FIN_1_seq = packet.getSequenceNumber();
-        this.FIN_1_id = new TransportStreamId(packet);
+    public void setFin2Seq(TCPPacket packet) {
+        this.fin2Seq = packet.getSequenceNumber();
+        this.fin2Id = new TransportStreamId(packet);
     }
 
-    public void setFIN_2_seq(TCPPacket packet) {
-        this.FIN_2_seq = packet.getSequenceNumber();
-        this.FIN_2_id = new TransportStreamId(packet);
+    public void setSyn1Seq(TCPPacket packet){
+        this.syn1Seq = packet.getSequenceNumber();
+        this.syn1Id = new TransportStreamId(packet);
     }
 
-    public long getFIN_1_seq() {
-        return FIN_1_seq;
+    public void setSyn2Seq(TCPPacket packet){
+        this.syn2Seq = packet.getSequenceNumber();
+        this.syn2Id = new TransportStreamId(packet);
     }
 
-    public long getFIN_2_seq() {
-        return FIN_2_seq;
+    public long getSyn1Seq() {
+        return syn1Seq;
     }
 
-    public TransportStreamId getFIN_1_id() {
-        return FIN_1_id;
+    public long getSyn2Seq() {
+        return syn2Seq;
     }
 
-    public TransportStreamId getFIN_2_id() {
-        return FIN_2_id;
+    public TransportStreamId getSyn1Id() {
+        return syn1Id;
     }
 
-    public boolean isFIN_1_Terminated() {
-        return is_FIN_1_terminated;
+    public TransportStreamId getSyn2Id() {
+        return syn2Id;
     }
 
-    public boolean isFIN_2_Terminated() {
-        return is_FIN_2_terminated;
+    public long getFin1Seq() {
+        return fin1Seq;
     }
 
-    public void terminateFIN_1() {
-        this.is_FIN_1_terminated = true;
+    public long getFin2Seq() {
+        return fin2Seq;
     }
 
-    public void terminateFIN_2() {
-        this.is_FIN_2_terminated = true;
+    public TransportStreamId getFin1Id() {
+        return fin1Id;
+    }
+
+    public TransportStreamId getFin2Id() {
+        return fin2Id;
+    }
+
+    public boolean isFin1Terminated() {
+        return isFin1Terminated;
+    }
+
+    public boolean isFin2Terminated() {
+        return isFin2Terminated;
+    }
+
+    public void terminateFin1() {
+        this.isFin1Terminated = true;
+    }
+
+    public void terminateFin2() {
+        this.isFin2Terminated = true;
     }
 }
