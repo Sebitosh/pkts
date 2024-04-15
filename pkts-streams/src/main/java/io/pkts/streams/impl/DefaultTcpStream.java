@@ -21,8 +21,6 @@ import java.util.TreeSet;
 
 public class DefaultTcpStream implements TcpStream {
 
-
-
     private final PcapGlobalHeader globalHeader;
 
     private final TransportStreamId id;
@@ -30,13 +28,17 @@ public class DefaultTcpStream implements TcpStream {
 
     private final NavigableSet<TCPPacket> packets;
 
+    private TcpDuplicateHandler duplicateHandler;
+
     private final FSM fsm;
+
 
     public DefaultTcpStream(PcapGlobalHeader globalHeader, TransportStreamId id, long uuid, TransitionListener<TcpState> synListener){
         this.globalHeader = globalHeader;
         this.id = id;
         this.uuid = uuid;
         this.packets = new TreeSet<TCPPacket>(new PacketComparator());
+        this.duplicateHandler = new TcpDuplicateHandler();
         this.fsm = TcpStreamFSM.definition.newInstance(uuid, new TcpStreamContext(), new TcpStreamData(), null, synListener);
         fsm.start();
     }
@@ -100,6 +102,7 @@ public class DefaultTcpStream implements TcpStream {
 
     @Override
     public void addPacket(TCPPacket packet){
+        duplicateHandler.setupDuplicateHandler(packet); // set necessary values from arriving packet
         packets.add(packet);
         fsm.onEvent(packet);
     }
@@ -116,5 +119,9 @@ public class DefaultTcpStream implements TcpStream {
     @Override
     public boolean ended() {
         return fsm.getState() == TcpState.CLOSED;
+    }
+
+    public TcpDuplicateHandler getDuplicateHandler() {
+        return duplicateHandler;
     }
 }

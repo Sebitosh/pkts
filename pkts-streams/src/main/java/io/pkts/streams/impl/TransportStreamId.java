@@ -28,7 +28,7 @@ public class TransportStreamId implements StreamId {
         this.destinationAddress = packet.getParentPacket().getDestinationIP();
         this.sourcePort = packet.getSourcePort();
         this.destinationPort = packet.getDestinationPort();
-        this.protocol = packet.getProtocol(); // is always TCP
+        this.protocol = packet.getProtocol();
     }
 
 

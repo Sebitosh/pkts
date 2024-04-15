@@ -175,6 +175,16 @@ public class TcpStreamHandler implements StreamHandler {
             stream = (stream == null) ? openTcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
 
             if (stream == null) {
+
+                for (TcpStream tcpStream : streams.values()){ // lookup closed streams to see if packet belongs there.
+                    if(belongsToClosedStream(tcpPacket, (DefaultTcpStream) tcpStream)){
+                        tcpStream.addPacket(tcpPacket);
+                        this.notifyPacketReceived(tcpStream, tcpPacket); // a closed stream received a packet !
+                        System.out.println("Closed stream received a packet !!!!");
+                        return; // packet added to old stream, do not start a new one, processing of packet ended.
+                    }
+                }
+
                 startNewStream(tcpPacket);
             } else {
                 stream.addPacket(tcpPacket);
@@ -184,8 +194,6 @@ public class TcpStreamHandler implements StreamHandler {
                     endStream(stream);
                 }
             }
-
-
 
         } catch (Exception e){
             e.printStackTrace();
@@ -257,5 +265,26 @@ public class TcpStreamHandler implements StreamHandler {
     private void endStream(TcpStream stream){
         openTcpStreams.remove(stream.getStreamIdentifier(), stream);
         this.notifyEndStream(stream);
+    }
+
+    /**
+     * Handling of duplicate RST or FIN packets, or next in sequence packets, on an already closed stream.
+     * This situation may come if one of the clients closes the connection by sending it's signaling flags,
+     * but those packets don't reach the other client, making that client send other data and making
+     * the closing client resend those signalling packets. Those duplicates and next in sequence packets
+     * belong the corresponding closed conversation. Because of this when a new stream is created we have
+     * to check that the new packet does not have it's place among all ended streams.
+     *
+     * @author sebastien.amelinckx@gmail.com
+     */
+    private boolean belongsToClosedStream(TCPPacket packet, DefaultTcpStream stream){
+        TransportStreamId streamId = (TransportStreamId) stream.getStreamIdentifier();
+        TcpDuplicateHandler duplicateHandler = stream.getDuplicateHandler();
+
+        if (!(streamId.equals(new TransportStreamId(packet)) || streamId.oppositeFlowDirection().equals(new TransportStreamId(packet)))){ // has to match closed stream's 5-tuple
+            return false;
+        }
+
+        return duplicateHandler.matchDuplicate(packet);
     }
 }

@@ -26,19 +26,19 @@ public class TcpStreamHandlerTest {
             @Override
             public void startStream(Stream<TCPPacket> stream, TCPPacket packet) {
                 TcpStream tcpStream = (TcpStream) stream;
-                System.out.println("New stream n°"+tcpStream.getUuid()+ " has started");
+                //System.out.println("New stream n°"+tcpStream.getUuid()+ " has started");
             }
 
             @Override
             public void packetReceived(Stream<TCPPacket> stream, TCPPacket packet) {
                 TcpStream tcpStream = (TcpStream) stream;
-                System.out.println("New packet for stream n°"+tcpStream.getUuid());
+                //System.out.println("New packet for stream n°"+tcpStream.getUuid());
             }
 
             @Override
             public void endStream(Stream<TCPPacket> stream) {
                 TcpStream tcpStream = (TcpStream) stream;
-                System.out.println("Stream n°"+tcpStream.getUuid()+ " has ended");
+                //System.out.println("Stream n°"+tcpStream.getUuid()+ " has ended");
             }
         });
     }
@@ -74,6 +74,7 @@ public class TcpStreamHandlerTest {
                 System.out.println("ip dest: " + packet.getParentPacket().getDestinationIP());
                 System.out.println("source port: " + packet.getSourcePort());
                 System.out.println("destination port: " + packet.getDestinationPort());
+                System.out.println("seq_num: " + packet.getSequenceNumber());
 
                 if (packet.isSYN()){
                     System.out.println("Packet has SYN flag");
@@ -85,7 +86,7 @@ public class TcpStreamHandlerTest {
                     System.out.println("Packet has RST flag");
                 }
                 if (packet.isACK()) {
-                    System.out.println("Packet has ACK flag");
+                    System.out.println("Packet has ACK flag, ack="+packet.getAcknowledgementNumber());
                 }
 
 
@@ -96,6 +97,26 @@ public class TcpStreamHandlerTest {
                 System.out.println();
             }
 
+
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+    @Test
+    public void testUserTraffic1() {
+        try {
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/user_traffic_1.pcap"));
+            pcap.loop(streamHandler);
+
+            Map all_streams = streamHandler.getStreams();
+
+            Set<LongStreamId> keys = all_streams.keySet();
+
+            for (LongStreamId uuid : keys){
+                System.out.println("found uuid " + uuid.asString());
+            }
 
         } catch (Exception e){
             e.printStackTrace();
