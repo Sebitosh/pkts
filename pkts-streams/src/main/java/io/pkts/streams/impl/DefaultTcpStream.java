@@ -16,8 +16,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NavigableSet;
-import java.util.TreeSet;
+import java.util.PriorityQueue;
 
 public class DefaultTcpStream implements TcpStream {
 
@@ -26,7 +25,7 @@ public class DefaultTcpStream implements TcpStream {
     private final TransportStreamId id;
     private final long uuid;
 
-    private final NavigableSet<TCPPacket> packets;
+    private final PriorityQueue<TCPPacket> packets; // Could not be a Set as packets with equal arrival time can be different packets
 
     private TcpDuplicateHandler duplicateHandler;
 
@@ -37,7 +36,7 @@ public class DefaultTcpStream implements TcpStream {
         this.globalHeader = globalHeader;
         this.id = id;
         this.uuid = uuid;
-        this.packets = new TreeSet<TCPPacket>(new PacketComparator());
+        this.packets = new PriorityQueue<TCPPacket>(new PacketComparator());
         this.duplicateHandler = new TcpDuplicateHandler();
         this.fsm = TcpStreamFSM.definition.newInstance(uuid, new TcpStreamContext(), new TcpStreamData(), null, synListener);
         fsm.start();
@@ -58,7 +57,7 @@ public class DefaultTcpStream implements TcpStream {
             return -1;
         }
 
-        return packets.first().getArrivalTime();
+        return packets.peek().getArrivalTime();
     }
 
     @Override
@@ -67,7 +66,13 @@ public class DefaultTcpStream implements TcpStream {
             return -1;
         }
 
-        return packets.last().getArrivalTime();
+        TCPPacket last = null;
+
+        for (TCPPacket packet : packets){
+            last = packet;
+        }
+
+        return last.getArrivalTime();
     }
 
     @Override

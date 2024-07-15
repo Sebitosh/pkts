@@ -180,7 +180,7 @@ public class TcpStreamHandler implements StreamHandler {
                     if(belongsToClosedStream(tcpPacket, (DefaultTcpStream) tcpStream)){
                         tcpStream.addPacket(tcpPacket);
                         this.notifyPacketReceived(tcpStream, tcpPacket); // a closed stream received a packet !
-                        System.out.println("Closed stream received a packet !!!!");
+                        //System.out.println("Closed stream received a packet !!!!");
                         return; // packet added to old stream, do not start a new one, processing of packet ended.
                     }
                 }
