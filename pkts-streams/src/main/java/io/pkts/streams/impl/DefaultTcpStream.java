@@ -18,6 +18,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
 
+/**
+ * @author sebastien.amelinckx@gmail.com
+ */
+
 public class DefaultTcpStream implements TcpStream {
 
     private final PcapGlobalHeader globalHeader;
@@ -25,8 +29,8 @@ public class DefaultTcpStream implements TcpStream {
     private final TransportStreamId id;
     private final long uuid;
 
-    private final PriorityQueue<TCPPacket> packets; // Could not be a Set as packets with equal arrival time can be different packets
-
+    private final PriorityQueue<TCPPacket> packets; // Could not be a Set as packets with equal arrival time
+                                                    // can be different packets.
     private TcpDuplicateHandler duplicateHandler;
 
     private final FSM fsm;
@@ -67,7 +71,6 @@ public class DefaultTcpStream implements TcpStream {
         }
 
         TCPPacket last = null;
-
         for (TCPPacket packet : packets){
             last = packet;
         }

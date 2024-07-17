@@ -9,6 +9,14 @@ import io.pkts.streams.impl.TransportStreamId;
 
 import static io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState.*;
 
+/**
+ * FSM using {@link io.hektor.fsm.FSM} to model the TCP connection. This class handles the state transitions for an
+ * ongoing TCP connection. The states are defined in {@link TcpState}. This class uses {@link TcpStreamData} to store
+ * the necessary data for the FSM to work. It has no use for the {@link TcpStreamContext} class, but it is there to
+ * make the library work.
+ *
+ * @author sebastien.amelinckx@gmail.com
+ */
 public class TcpStreamFSM{
     public final static Definition<TcpState, TcpStreamContext, TcpStreamData> definition;
     public enum TcpState{
@@ -51,7 +59,7 @@ public class TcpStreamFSM{
 
         finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
-        finWait1.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::ackOfFin1AndFin2).withAction(TcpStreamFSM::closeFin1SetFin2); // special case FIN + ACKofFin1 packet
+        finWait1.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::ackOfFin1AndFin2).withAction(TcpStreamFSM::closeFin1SetFin2); // special case FIN + ACKOfFin1 packet
         finWait1.transitionTo(FIN_WAIT_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1); // if first fin has been acked
         finWait1.transitionTo(CLOSING_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2);
         finWait1.transitionToSelf().onEvent(TCPPacket.class);
@@ -90,7 +98,7 @@ public class TcpStreamFSM{
     }
 
     private static boolean isSecondFinPacket(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){ // check if FIN segment comes from the second party
-        return packet.isFIN() && (!data.getFin1Id().equals(new TransportStreamId(packet))); // is it a FIN segment AND not coming from the same direction as FIN_1
+        return packet.isFIN() && (!data.getFin1Id().equals(new TransportStreamId(packet))); // is it a FIN segment AND not coming from the same direction as FIN 1
     }
 
     private static boolean isRstPacket(TCPPacket packet){
@@ -114,29 +122,15 @@ public class TcpStreamFSM{
     }
 
     private static boolean isAckOfFin1(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
-        if (!packet.isACK()){ // check Ack flag is set
-            return false;
-        }
-        else if (data.isFin1Terminated()){ // if side 1 is already closed
-            return false;
-        }
-        else if(!data.getFin1Id().equals((new TransportStreamId(packet).oppositeFlowDirection()))){ // ack has to come from opposite party
-            return false;
-        }
-        else return data.getFin1Seq() < packet.getAcknowledgementNumber();
+        return packet.isACK() && !data.isFin1Terminated() &&
+                data.getFin1Id().equals(new TransportStreamId(packet).oppositeFlowDirection()) &&
+                data.getFin1Seq() < packet.getAcknowledgementNumber();
     }
 
     private static boolean isAckOfFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){
-        if (!packet.isACK()){ // check Ack flag is set
-            return false;
-        }
-        else if (data.isFin2Terminated()){ // if side 2 is already closed
-            return false;
-        }
-        else if(!data.getFin2Id().equals((new TransportStreamId(packet).oppositeFlowDirection()))){ // ack has to come from opposite party
-            return false;
-        }
-        else return data.getFin2Seq() < packet.getAcknowledgementNumber();
+        return packet.isACK() && !data.isFin2Terminated() &&
+                data.getFin2Id().equals(new TransportStreamId(packet).oppositeFlowDirection()) &&
+                data.getFin2Seq() < packet.getAcknowledgementNumber();
     }
 
     private static boolean ackOfFin1AndFin2(TCPPacket packet, TcpStreamContext ctx, TcpStreamData data){

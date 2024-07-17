@@ -4,6 +4,14 @@ import io.hektor.fsm.Data;
 import io.pkts.packet.TCPPacket;
 import io.pkts.streams.impl.TransportStreamId;
 
+/**
+ * Necessary class for the {@link TcpStreamFSM} using Hektor.
+ * Stores sequence numbers of SYN and FIN packets and their corresponding stream IDs to determine
+ * if SYN packets are retransmissions, making sure the state does not change in that case,
+ * and to determine if FIN packets are acked, closing their side of the connection in that case.
+ *
+ * @author sebastien.amelinckx@gmail.com
+ */
 public class TcpStreamData implements Data {
     private long syn1Seq = -1; // in most cases base sequence number
     private long syn2Seq = -1; // in case of two way SYN

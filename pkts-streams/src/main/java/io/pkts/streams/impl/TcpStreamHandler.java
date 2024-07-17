@@ -278,6 +278,7 @@ public class TcpStreamHandler implements StreamHandler {
      * @author sebastien.amelinckx@gmail.com
      */
     private boolean belongsToClosedStream(TCPPacket packet, DefaultTcpStream stream){
+        // TODO what if multiple closed streams have the same 5-tuple ??
         TransportStreamId streamId = (TransportStreamId) stream.getStreamIdentifier();
         TcpDuplicateHandler duplicateHandler = stream.getDuplicateHandler();
 

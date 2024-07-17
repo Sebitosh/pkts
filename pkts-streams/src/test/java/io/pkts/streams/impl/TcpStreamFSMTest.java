@@ -1,9 +1,7 @@
 package io.pkts.streams.impl;
 
 import io.hektor.fsm.FSM;
-import io.pkts.PacketHandler;
 import io.pkts.Pcap;
-import io.pkts.packet.Packet;
 import io.pkts.packet.TCPPacket;
 import io.pkts.protocol.Protocol;
 import io.pkts.streams.StreamsTestBase;
@@ -14,11 +12,13 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.IOException;
 import java.util.ArrayList;
 
-
+/**
+ * Unit tests for the {@link TcpStreamFSM}.
+ *
+ * @author sebastien.amelinckx@gmail.com
+ */
 public class TcpStreamFSMTest {
 
     FSM stream;
@@ -27,13 +27,11 @@ public class TcpStreamFSMTest {
     ArrayList<TCPPacket> packets;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp(){
         ctx = new TcpStreamContext();
         data = new TcpStreamData();
         stream = TcpStreamFSM.definition.newInstance("uuid-123",ctx, data);
         stream.start();
-
-
     }
 
 
@@ -258,6 +256,7 @@ public class TcpStreamFSMTest {
 
     }
 
+    // fails because the new SYN is a duplicate (also marked in wireshark)
     @Test
     public void testSynEndEstablished() {
         packets = retrievePackets("tcp-fsm/tcp_established_syn.pcap");
@@ -276,6 +275,7 @@ public class TcpStreamFSMTest {
 
     }
 
+    // fails because the new SYN is a duplicate (also marked in wireshark)
     @Test
     public void testSynEndFin1() {
         packets = retrievePackets("tcp-fsm/tcp_fin1_syn.pcap");
@@ -300,14 +300,11 @@ public class TcpStreamFSMTest {
         ArrayList<TCPPacket> packets = new ArrayList<>();
         try {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream(filename));
-            pcap.loop(new PacketHandler() {
-                @Override
-                public boolean nextPacket(Packet packet) throws IOException {
-                    if (packet.hasProtocol(Protocol.TCP)) {
-                        packets.add((TCPPacket) packet.getPacket(Protocol.TCP));
-                    }
-                    return true;
+            pcap.loop(packet -> {
+                if (packet.hasProtocol(Protocol.TCP)) {
+                    packets.add((TCPPacket) packet.getPacket(Protocol.TCP));
                 }
+                return true;
             });
 
         } catch (Exception e) {

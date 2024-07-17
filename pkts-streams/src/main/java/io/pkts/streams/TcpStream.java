@@ -3,19 +3,25 @@ package io.pkts.streams;
 import io.pkts.packet.TCPPacket;
 import io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState;
 
-public interface TcpStream extends Stream {
-    // What do I want here ?
-    // Probably layer 3 information
-    // Maybe some statistics
-    // Maybe some indication of state
+/**
+ * An {@link TcpStream} represents a stream of {@link TCPPacket}s belonging to the same connection.
+ * A TCP conversation is identified it's 5-tuple (src-ip, src-port, dest-ip, dest-port, protocol=TCP), and
+ * should follow a valid state progression for the lifetime of the connection (see RFC 793). This means that for
+ * the same 5-tuple, if an event occurs that indicates the connection is no longer valid (such as a new SYN exchange
+ * or data exchange when the connection should be closed), the stream should be ended and a new stream should be
+ * potentially created for the new connection.
+ *
+ * @author sebastien.amelinckx@gmail.com
+ */
+public interface TcpStream extends Stream<TCPPacket> {
 
-    public String getSrcAddr();
+    String getSrcAddr();
 
-    public String getDestAddr();
+    String getDestAddr();
 
-    public int getSrcPort();
+    int getSrcPort();
 
-    public int getDestPort();
+    int getDestPort();
 
     void addPacket(TCPPacket packet);
 
@@ -23,5 +29,5 @@ public interface TcpStream extends Stream {
 
     long getUuid();
 
-    public boolean ended();
+    boolean ended();
 }
