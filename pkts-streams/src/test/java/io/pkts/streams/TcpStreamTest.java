@@ -58,7 +58,7 @@ public class TcpStreamTest {
 
         assertEquals(stream.getStreamIdentifier(), id);
         assertEquals(stream.getState(), TcpStreamFSM.TcpState.ESTABLISHED);
-        assertFalse(stream.ended());
+        assertFalse(stream.Ended());
 
         assertEquals(stream.getSrcAddr(), "172.16.100.13");
         assertEquals(stream.getDestAddr(), "172.16.100.10");

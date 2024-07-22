@@ -31,8 +31,6 @@ public class DefaultTcpStream implements TcpStream {
 
     private final PriorityQueue<TCPPacket> packets; // Could not be a Set as packets with equal arrival time
                                                     // can be different packets.
-    private TcpDuplicateHandler duplicateHandler;
-
     private final FSM fsm;
 
 
@@ -41,7 +39,6 @@ public class DefaultTcpStream implements TcpStream {
         this.id = id;
         this.uuid = uuid;
         this.packets = new PriorityQueue<TCPPacket>(new PacketComparator());
-        this.duplicateHandler = new TcpDuplicateHandler();
         this.fsm = TcpStreamFSM.definition.newInstance(uuid, new TcpStreamContext(), new TcpStreamData(), null, synListener);
         fsm.start();
     }
@@ -110,9 +107,12 @@ public class DefaultTcpStream implements TcpStream {
 
     @Override
     public void addPacket(TCPPacket packet){
-        duplicateHandler.setupDuplicateHandler(packet); // set necessary values from arriving packet
-        packets.add(packet);
         fsm.onEvent(packet);
+        // if new syn exchange, a new stream will be started by the synListener
+        // in that case, no need to add the new syn packet to the stream
+        if (fsm.getState() != TcpState.CLOSED_PORTS_REUSED){
+            packets.add(packet);
+        }
     }
 
     @Override
@@ -124,12 +124,16 @@ public class DefaultTcpStream implements TcpStream {
     public long getUuid(){
         return this.uuid;
     }
+
+    /**
+     * A TCP stream is ended when the connection ends, but even in this state
+     * a stream can receive new arriving packets. So, the stream is ended in the
+     * closed state, but also when the ports are reused which is the terminal state
+     * of the {@link TcpStreamFSM}.
+     */
     @Override
-    public boolean ended() {
-        return fsm.getState() == TcpState.CLOSED;
+    public boolean Ended() {
+        return fsm.getState() == TcpState.CLOSED || fsm.getState() == TcpState.CLOSED_PORTS_REUSED;
     }
 
-    public TcpDuplicateHandler getDuplicateHandler() {
-        return duplicateHandler;
-    }
 }

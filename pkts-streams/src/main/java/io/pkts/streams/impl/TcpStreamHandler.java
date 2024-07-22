@@ -53,7 +53,7 @@ public class TcpStreamHandler implements StreamHandler {
         public void onTransition(TcpState currentState, TcpState toState, Object o) {
             if (!(o instanceof TCPPacket)){
                 throw new RuntimeException("Object passed to TcpFSM is of Class: " + o.getClass());
-            } else if (toState == TcpState.CLOSED && ((TCPPacket) o).isSYN()) {
+            } else if (toState == TcpState.CLOSED_PORTS_REUSED && ((TCPPacket) o).isSYN()) {
                 startNewStream((TCPPacket) o);
             }
         }
@@ -68,8 +68,8 @@ public class TcpStreamHandler implements StreamHandler {
 
     private FragmentListener fragmentListener;
 
-    // This map is for looking up what streams are open and attribute packets to them
-    private final Map<StreamId, TcpStream> openTcpStreams = new HashMap<StreamId, TcpStream>();
+    // This map is for looking up what streams are accessible and attribute packets to them
+    private final Map<StreamId, TcpStream> activeTcpStreams = new HashMap<StreamId, TcpStream>();
     
     // This map is for the user to recover all streams
     private final Map<StreamId, TcpStream> streams = new LinkedHashMap<StreamId, TcpStream>();
@@ -171,27 +171,16 @@ public class TcpStreamHandler implements StreamHandler {
 
             final TransportStreamId pktStreamId = new TransportStreamId(tcpPacket);
 
-            TcpStream stream = openTcpStreams.get(pktStreamId);
-            stream = (stream == null) ? openTcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
+            TcpStream stream = activeTcpStreams.get(pktStreamId);
+            stream = (stream == null) ? activeTcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
 
             if (stream == null) {
-                // TODO should use contains to look for an equal 5-tuple before cheking if the packets belongs.
-                for (TcpStream tcpStream : streams.values()){ // lookup closed streams to see if packet belongs there.
-                    if(belongsToClosedStream(tcpPacket, (DefaultTcpStream) tcpStream)){
-                        tcpStream.addPacket(tcpPacket);
-                        this.notifyPacketReceived(tcpStream, tcpPacket); // a closed stream received a packet !
-                        //System.out.println("Closed stream received a packet !!!!");
-                        return; // packet added to old stream, do not start a new one, processing of packet ended.
-                    }
-                }
-
                 startNewStream(tcpPacket);
             } else {
                 stream.addPacket(tcpPacket);
                 this.notifyPacketReceived(stream, tcpPacket);
-                TcpState streamState = stream.getState();
-                if (streamState == TcpState.CLOSED){
-                    endStream(stream);
+                if (stream.Ended()){ // in case the stream is already closed, might call each time endStream when a new packet is seen.
+                    this.notifyEndStream(stream);
                 }
             }
 
@@ -256,36 +245,9 @@ public class TcpStreamHandler implements StreamHandler {
         PcapGlobalHeader header = assignGlobalHeader(packet.getParentPacket().getParentPacket());
         TcpStream stream = new DefaultTcpStream(header, pktStreamId, uuid_counter++, new SynListener());
 
-        this.openTcpStreams.put(pktStreamId, stream);
+        this.activeTcpStreams.put(pktStreamId, stream); // if key is same, value is replaced. So, when ports reused, the old stream is replaced and no packets will be added to it anymore.
         this.streams.put(new LongStreamId(stream.getUuid()), stream);
         stream.addPacket(packet);
         this.notifyStartStream(stream, packet);
-    }
-
-    private void endStream(TcpStream stream){
-        openTcpStreams.remove(stream.getStreamIdentifier(), stream);
-        this.notifyEndStream(stream);
-    }
-
-    /**
-     * Handling of duplicate RST or FIN packets, or next in sequence packets, on an already closed stream.
-     * This situation may come if one of the clients closes the connection by sending it's signaling flags,
-     * but those packets don't reach the other client, making that client send other data and making
-     * the closing client resend those signalling packets. Those duplicates and next in sequence packets
-     * belong the corresponding closed conversation. Because of this when a new stream is created we have
-     * to check that the new packet does not have it's place among all ended streams.
-     *
-     * @author sebastien.amelinckx@gmail.com
-     */
-    private boolean belongsToClosedStream(TCPPacket packet, DefaultTcpStream stream){
-        // TODO what if multiple closed streams have the same 5-tuple ??
-        TransportStreamId streamId = (TransportStreamId) stream.getStreamIdentifier();
-        TcpDuplicateHandler duplicateHandler = stream.getDuplicateHandler();
-
-        if (!(streamId.equals(new TransportStreamId(packet)) || streamId.oppositeFlowDirection().equals(new TransportStreamId(packet)))){ // has to match closed stream's 5-tuple
-            return false;
-        }
-
-        return duplicateHandler.matchDuplicate(packet);
     }
 }

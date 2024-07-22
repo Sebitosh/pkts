@@ -162,6 +162,118 @@ public class TcpStreamHandlerTest {
     *
      */
 
-    //TODO
+    /**
+     * Test on a capture with two streams, each with a full handshake and 20 data packets,
+     * with the second stream reusing the same ports as the first one.
+     */
+    @Test
+    public void testReusingPorts(){
+        try {
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/ports-reused-basic.pcap"));
+            pcap.loop(streamHandler);
+
+            Map all_streams = streamHandler.getStreams();
+
+            assertEquals(2, all_streams.size());
+
+            ArrayList<TcpStream> streams_tcp = new ArrayList<TcpStream>(all_streams.values());
+
+            assertEquals(23, streams_tcp.get(0).getPackets().size());
+            assertEquals(23, streams_tcp.get(1).getPackets().size());
+        } catch (Exception e){
+            e.printStackTrace();
+            fail();
+        }
+    }
+
+    /**
+     * Test on a capture with a duplicate syn packet. Should not split the stream because the second syn
+     * is only a retransmission of the first one. Wireshark marks it as a 'reused port' packet but also as
+     * a 'out-of-order' packet, but not as a 'retransmission' oddly enough. Despite this, it considers it part
+     * of the same stream on it's first pass.
+     * We expect the same behavior from the handler.
+     */
+    @Test
+    public void testSynDuplicateAfterClosing(){
+        try {
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/tcp_fin1_syn_dupli.pcap"));
+            pcap.loop(streamHandler);
+
+            Map all_streams = streamHandler.getStreams();
+
+            assertEquals(1, all_streams.size());
+
+        } catch (Exception e){
+            e.printStackTrace();
+            fail();
+        }
+    }
+
+    /**
+     * Test on a capture with two streams, each with a full handshake and port reuse.
+     * The second stream has a data packet that could be a retransmission of the first stream.
+     * But, because it happens after a port reused, it is considered by wireshark as belonging
+     * to the second stream on it's first pass and marked as a 'spurious retransmission' on the second pass.
+     * We expect the same behavior from the handler.
+     */
+    @Test
+    public void testSpuriousRetransmission(){
+        try {
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/tcp_stream_spurious_retransmit.pcap"));
+            pcap.loop(streamHandler);
+
+            Map all_streams = streamHandler.getStreams();
+
+            assertEquals(2, all_streams.size());
+
+            ArrayList<TcpStream> streams_tcp = new ArrayList<TcpStream>(all_streams.values());
+
+            assertEquals(9, streams_tcp.get(0).getPackets().size());
+            assertEquals(4, streams_tcp.get(1).getPackets().size());
+        } catch (Exception e){
+            e.printStackTrace();
+            fail();
+        }
+    }
+
+    /**
+     * Test on a stream that closes with a RST packet and then receives 6 packets after 10 years of inactivity.
+     * Despite the obvious timeout, wireshark still considers the packets as part of the same stream.
+     * We expect the same behavior from the handler.
+     */
+    @Test
+    public void testPacketBeyondTimeout(){
+        try {
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/passed_timeout.pcap"));
+            pcap.loop(streamHandler);
+
+            Map all_streams = streamHandler.getStreams();
+
+            assertEquals(1, all_streams.size());
+        } catch (Exception e){
+            e.printStackTrace();
+            fail();
+        }
+    }
+
+    /**
+     * Test on a stream that gets a packet with a lower sequence number than the base sequence number of
+     * the stream. Despite this, wireshark still considers the packet as part of the same stream.
+     * We expect the same behavior from the handler.
+     */
+    @Test
+    public void testLowerSeq(){
+        try {
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/passed_timeout.pcap"));
+            pcap.loop(streamHandler);
+
+            Map all_streams = streamHandler.getStreams();
+
+            assertEquals(1, all_streams.size());
+        } catch (Exception e){
+            e.printStackTrace();
+            fail();
+        }
+    }
 
 }

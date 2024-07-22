@@ -21,7 +21,7 @@ public class TcpStreamFSM{
     public final static Definition<TcpState, TcpStreamContext, TcpStreamData> definition;
     public enum TcpState{
         INIT, HANDSHAKE, ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2,
-        CLOSING_1_CLOSING_2, CLOSED_1_CLOSING_2, CLOSING_1_CLOSED_2, CLOSED
+        CLOSING_1_CLOSING_2, CLOSED_1_CLOSING_2, CLOSING_1_CLOSED_2, CLOSED, CLOSED_PORTS_REUSED
     }
 
     static {
@@ -39,7 +39,9 @@ public class TcpStreamFSM{
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closing1Closing2 = builder.withState(CLOSING_1_CLOSING_2);
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed1Closing2 = builder.withState(CLOSED_1_CLOSING_2);
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closing1Closed2 = builder.withState(CLOSING_1_CLOSED_2);
-        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed = builder.withFinalState(CLOSED);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed = builder.withState(CLOSED);
+        final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closedPortsReused = builder.withFinalState(CLOSED_PORTS_REUSED);
+
 
         // define all transitions
         init.transitionTo(HANDSHAKE).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket).withAction(TcpStreamFSM::setSyn1);
@@ -53,37 +55,46 @@ public class TcpStreamFSM{
         handshake.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
         established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        established.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket); // skipped the end of stream, New stream noticed
+        established.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket); // skipped the end of stream, New stream noticed
         established.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);
         established.transitionToSelf().onEvent(TCPPacket.class);
 
         finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        finWait1.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
+        finWait1.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         finWait1.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::ackOfFin1AndFin2).withAction(TcpStreamFSM::closeFin1SetFin2); // special case FIN + ACKOfFin1 packet
         finWait1.transitionTo(FIN_WAIT_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1); // if first fin has been acked
         finWait1.transitionTo(CLOSING_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2);
         finWait1.transitionToSelf().onEvent(TCPPacket.class);
 
         finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        finWait2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
+        finWait2.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         finWait2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSecondFinPacket).withAction(TcpStreamFSM::setFin2); // 2nd fin observed
         finWait2.transitionToSelf().onEvent(TCPPacket.class);
 
         closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closing1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
+        closing1Closing2.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closing1Closing2.transitionTo(CLOSED_1_CLOSING_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
         closing1Closing2.transitionTo(CLOSING_1_CLOSED_2).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closing1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
         closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
+        closed1Closing2.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closed1Closing2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin2).withAction(TcpStreamFSM::closeFin2);
         closed1Closing2.transitionToSelf().onEvent(TCPPacket.class);
 
         closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
-        closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
+        closing1Closed2.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closing1Closed2.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isAckOfFin1).withAction(TcpStreamFSM::closeFin1);
         closing1Closed2.transitionToSelf().onEvent(TCPPacket.class);
+
+        /*
+         * When a stream is in a closed state (gracefully or abruptly), it can still receive packets such
+         * as retransmissions, keep-alives, new RST packets, data, etc. The only case were we should never add a
+         * new packet to the stream is when a new SYN packet is received, which means a new stream is starting.
+         * Explaining why here, the terminal state for the FSM is when we observe that ports are reused.
+         */
+        closed.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
+        closed.transitionToSelf().onEvent(TCPPacket.class);
 
 
         definition = builder.build();

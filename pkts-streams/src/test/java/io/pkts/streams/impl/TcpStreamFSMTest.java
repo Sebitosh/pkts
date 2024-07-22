@@ -319,7 +319,7 @@ public class TcpStreamFSMTest {
 
         // new syn reusing ports (marked in wireshark), FSM should consider the connection closed
         stream.onEvent(packets.get(6));
-        assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
+        assertEquals(TcpStreamFSM.TcpState.CLOSED_PORTS_REUSED, stream.getState());
 
     }
 
@@ -339,7 +339,7 @@ public class TcpStreamFSMTest {
 
         // new syn reusing ports (marked in wireshark), FSM should consider the connection closed
         stream.onEvent(packets.get(4));
-        assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
+        assertEquals(TcpStreamFSM.TcpState.CLOSED_PORTS_REUSED, stream.getState());
 
     }
 

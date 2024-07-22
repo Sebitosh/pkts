@@ -29,5 +29,5 @@ public interface TcpStream extends Stream<TCPPacket> {
 
     long getUuid();
 
-    boolean ended();
+    boolean Ended();
 }
