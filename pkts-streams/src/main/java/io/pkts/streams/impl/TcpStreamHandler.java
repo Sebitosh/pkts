@@ -175,7 +175,7 @@ public class TcpStreamHandler implements StreamHandler {
             stream = (stream == null) ? openTcpStreams.get(pktStreamId.oppositeFlowDirection()) : stream;
 
             if (stream == null) {
-
+                // TODO should use contains to look for an equal 5-tuple before cheking if the packets belongs.
                 for (TcpStream tcpStream : streams.values()){ // lookup closed streams to see if packet belongs there.
                     if(belongsToClosedStream(tcpPacket, (DefaultTcpStream) tcpStream)){
                         tcpStream.addPacket(tcpPacket);

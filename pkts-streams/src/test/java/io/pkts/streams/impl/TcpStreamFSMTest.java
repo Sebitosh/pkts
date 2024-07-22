@@ -269,9 +269,9 @@ public class TcpStreamFSMTest {
         stream.onEvent(packets.get(2));
         assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
 
-        // new handshake end in established
+        // syn packet but it is a duplicate, should have no effect on the FSM state
         stream.onEvent(packets.get(3));
-        assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
+        assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
 
     }
 
@@ -289,11 +289,60 @@ public class TcpStreamFSMTest {
         assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
         stream.onEvent(packets.get(3));
         assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());
-        // new handshake end in finWait1
+
+        // syn packet but it is a duplicate, should have no effect on the FSM state
+        stream.onEvent(packets.get(4));
+        assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());
+
+    }
+
+
+    @Test
+    public void testEstablishedSynPortsReused() {
+        packets = retrievePackets("tcp-fsm/established_syn_ports_reused.pcap");
+
+        // syn exchange
+        stream.onEvent(packets.get(0));
+        assertEquals(TcpStreamFSM.TcpState.HANDSHAKE, stream.getState());
+        stream.onEvent(packets.get(1));
+        assertEquals(TcpStreamFSM.TcpState.HANDSHAKE, stream.getState());
+        stream.onEvent(packets.get(2));
+        assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
+
+        // 3 data packets
+        stream.onEvent(packets.get(3));
+        assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
+        stream.onEvent(packets.get(4));
+        assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
+        stream.onEvent(packets.get(5));
+        assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
+
+        // new syn reusing ports (marked in wireshark), FSM should consider the connection closed
+        stream.onEvent(packets.get(6));
+        assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
+
+    }
+
+    @Test
+    public void testFin1SynPortsReused() {
+        packets = retrievePackets("tcp-fsm/fin1_syn_ports_reused.pcap");
+
+        // syn exchange
+        stream.onEvent(packets.get(0));
+        assertEquals(TcpStreamFSM.TcpState.HANDSHAKE, stream.getState());
+        stream.onEvent(packets.get(1));
+        assertEquals(TcpStreamFSM.TcpState.HANDSHAKE, stream.getState());
+        stream.onEvent(packets.get(2));
+        assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
+        stream.onEvent(packets.get(3));
+        assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());
+
+        // new syn reusing ports (marked in wireshark), FSM should consider the connection closed
         stream.onEvent(packets.get(4));
         assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
 
     }
+
 
 
     private static ArrayList<TCPPacket> retrievePackets(String filename){

@@ -1,9 +1,6 @@
 package io.pkts.streams.impl;
 
-
 import io.pkts.Pcap;
-import io.pkts.buffer.Buffer;
-import io.pkts.packet.Packet;
 import io.pkts.packet.TCPPacket;
 import io.pkts.streams.Stream;
 import io.pkts.streams.StreamListener;
@@ -15,13 +12,24 @@ import org.junit.Test;
 
 import java.util.*;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
+
+/**
+ *
+ * End-to-end tests for the {@link  TcpStreamHandler} class.
+ * The methodology here is to look if the handler identifies the same number
+ * of streams as would wireshark for some captured traffic.
+ *
+ * @author sebastien.amelinclx@gmail.com
+ */
 public class TcpStreamHandlerTest {
 
     TcpStreamHandler streamHandler;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp(){
         streamHandler = new TcpStreamHandler();
         streamHandler.addStreamListener(new StreamListener<TCPPacket>() {
             @Override
@@ -45,9 +53,14 @@ public class TcpStreamHandlerTest {
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown(){
     }
 
+    /*
+    *
+    * General case tests with captured samples of traffic.
+    *
+     */
     @Test
     public void testBaseUsage() {
         try {
@@ -57,56 +70,26 @@ public class TcpStreamHandlerTest {
             Map all_streams = streamHandler.getStreams();
 
             Set<LongStreamId> keys = all_streams.keySet();
+            assertEquals(3, keys.size());
 
-            for (LongStreamId uuid : keys){
-                System.out.println("found uuid " + uuid.asString());
-            }
+            Collection<TcpStream> streams = all_streams.values();
 
-            ArrayList<TcpStream> streams = new ArrayList<TcpStream>(all_streams.values());
-
-            List<TCPPacket> second = streams.get(2).getPackets();
-
-            System.out.println("Stream id is " + streams.get(1).getStreamIdentifier());
-
-            System.out.println("-----------");
-            System.out.println("Packets are:");
-            for (TCPPacket packet : second){
-                System.out.println("ip src: " + packet.getParentPacket().getSourceIP());
-                System.out.println("ip dest: " + packet.getParentPacket().getDestinationIP());
-                System.out.println("source port: " + packet.getSourcePort());
-                System.out.println("destination port: " + packet.getDestinationPort());
-                System.out.println("seq_num: " + packet.getSequenceNumber());
-
-                if (packet.isSYN()){
-                    System.out.println("Packet has SYN flag");
-                }
-                if (packet.isFIN()){
-                    System.out.println("Packet has FIN flag");
-                }
-                if (packet.isRST()){
-                    System.out.println("Packet has RST flag");
-                }
-                if (packet.isACK()) {
-                    System.out.println("Packet has ACK flag, ack="+packet.getAcknowledgementNumber());
-                }
-
-
-                System.out.println("packet payload: ");
-
-                System.out.println(packet.getPayload());
-
-                System.out.println();
-            }
-
+            assertEquals(380, streams.stream().toList().get(0).getPackets().size());
+            assertEquals(11, streams.stream().toList().get(1).getPackets().size());
+            assertEquals(9, streams.stream().toList().get(2).getPackets().size());
 
         } catch (Exception e){
             e.printStackTrace();
+            fail();
         }
 
     }
 
+    /**
+     * Test on captured web traffic containing 273 streams.
+     */
     @Test
-    public void testUserTraffic1() {
+    public void testUserTraffic() {
         try {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/user_traffic_1.pcap"));
             pcap.loop(streamHandler);
@@ -114,18 +97,7 @@ public class TcpStreamHandlerTest {
             Map all_streams = streamHandler.getStreams();
 
             Set<LongStreamId> keys = all_streams.keySet();
-            Collection<TcpStream> streams = all_streams.values();
-
-            for (LongStreamId uuid : keys){
-                System.out.println("-------------------------------------------");
-                System.out.println("Stream uuid " + uuid.asString());
-                TcpStream s = streams.stream().toList().get((int) uuid.getId());
-                System.out.println("First packet arrived at time: " + s.getTimeOfFirstPacket());
-                System.out.println("Last packet arrived at time: " + s.getTimeOfLastPacket());
-                System.out.println("Last state of stream was: " + s.getState());
-                System.out.println("Number of packets: " + s.getPackets().size());
-                System.out.println("-------------------------------------------");
-            }
+            assertEquals(273, keys.size());
 
         } catch (Exception e){
             e.printStackTrace();
@@ -133,7 +105,7 @@ public class TcpStreamHandlerTest {
 
     }
 
-    // single stream that after closed receives a FIN packet previously unseen
+    // single stream that after closing with an RST packet receives a FIN packet previously unseen
     @Test
     public void testFinNextBug() {
         try {
@@ -142,62 +114,24 @@ public class TcpStreamHandlerTest {
 
             Map all_streams = streamHandler.getStreams();
 
-            Set<LongStreamId> keys = all_streams.keySet();
-            Collection<TcpStream> streams = all_streams.values();
-
-            for (LongStreamId uuid : keys){
-                System.out.println("-------------------------------------------");
-                System.out.println("Stream uuid " + uuid.asString());
-                TcpStream s = streams.stream().toList().get((int) uuid.getId());
-                System.out.println("First packet arrived at time: " + s.getTimeOfFirstPacket());
-                System.out.println("Last packet arrived at time: " + s.getTimeOfLastPacket());
-                System.out.println("Last state of stream was: " + s.getState());
-                System.out.println("Number of packets: " + s.getPackets().size());
-
-                int counter = 0;
-                for (Object object : s.getPackets()){
-                    TCPPacket tcpPacket = (TCPPacket) object;
-                    System.out.println("packet n°"+ counter++ + " payload length: " + bufferSize(tcpPacket.getPayload()));
-                }
-
-                System.out.println("-------------------------------------------");
-            }
+            assertEquals(1, all_streams.size());
 
         } catch (Exception e){
             e.printStackTrace();
+            fail();
         }
-
     }
 
-    // single stream that gets an Ack of Fin and a RST packet after closing.
+    // single stream that exchanges keep-alives after closing.
     @Test
-    public void testAckOfFinAndRstBug() {
+    public void testKeepAlive() {
         try {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/ack_of_fin_and_rst_passed_closed.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
 
-            Set<LongStreamId> keys = all_streams.keySet();
-            Collection<TcpStream> streams = all_streams.values();
-
-            for (LongStreamId uuid : keys){
-                System.out.println("-------------------------------------------");
-                System.out.println("Stream uuid " + uuid.asString());
-                TcpStream s = streams.stream().toList().get((int) uuid.getId());
-                System.out.println("First packet arrived at time: " + s.getTimeOfFirstPacket());
-                System.out.println("Last packet arrived at time: " + s.getTimeOfLastPacket());
-                System.out.println("Last state of stream was: " + s.getState());
-                System.out.println("Number of packets: " + s.getPackets().size());
-
-                int counter = 0;
-                for (Object object : s.getPackets()){
-                    TCPPacket tcpPacket = (TCPPacket) object;
-                    System.out.println("packet n°"+ counter++ + " arrival time: " + tcpPacket.getArrivalTime());
-                }
-
-                System.out.println("-------------------------------------------");
-            }
+            assertEquals(1, all_streams.size());
 
         } catch (Exception e){
             e.printStackTrace();
@@ -205,34 +139,16 @@ public class TcpStreamHandlerTest {
 
     }
 
+    // single stream that after closing receives an out-of-order packet.
     @Test
-    public void testOutOfOrderBug() {
+    public void testOutOfOrder() {
         try {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/out_of_order.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
 
-            Set<LongStreamId> keys = all_streams.keySet();
-            Collection<TcpStream> streams = all_streams.values();
-
-            for (LongStreamId uuid : keys){
-                System.out.println("-------------------------------------------");
-                System.out.println("Stream uuid " + uuid.asString());
-                TcpStream s = streams.stream().toList().get((int) uuid.getId());
-                System.out.println("First packet arrived at time: " + s.getTimeOfFirstPacket());
-                System.out.println("Last packet arrived at time: " + s.getTimeOfLastPacket());
-                System.out.println("Last state of stream was: " + s.getState());
-                System.out.println("Number of packets: " + s.getPackets().size());
-
-                int counter = 0;
-                for (Object object : s.getPackets()){
-                    TCPPacket tcpPacket = (TCPPacket) object;
-                    System.out.println("packet n°"+ counter++ + " arrival time: " + tcpPacket.getArrivalTime());
-                }
-
-                System.out.println("-------------------------------------------");
-            }
+            assertEquals(1, all_streams.size());
 
         } catch (Exception e){
             e.printStackTrace();
@@ -240,46 +156,12 @@ public class TcpStreamHandlerTest {
 
     }
 
-    @Test
-    public void testOrderBug() {
-        try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/order.pcap"));
-            pcap.loop(streamHandler);
+    /*
+    *
+    * Test on corner cases with synthetic traffic.
+    *
+     */
 
-            Map all_streams = streamHandler.getStreams();
+    //TODO
 
-            Set<LongStreamId> keys = all_streams.keySet();
-            Collection<TcpStream> streams = all_streams.values();
-
-            for (LongStreamId uuid : keys){
-                System.out.println("-------------------------------------------");
-                System.out.println("Stream uuid " + uuid.asString());
-                TcpStream s = streams.stream().toList().get((int) uuid.getId());
-                System.out.println("First packet arrived at time: " + s.getTimeOfFirstPacket());
-                System.out.println("Last packet arrived at time: " + s.getTimeOfLastPacket());
-                System.out.println("Last state of stream was: " + s.getState());
-                System.out.println("Number of packets: " + s.getPackets().size());
-
-                int counter = 0;
-                for (Object object : s.getPackets()){
-                    TCPPacket tcpPacket = (TCPPacket) object;
-                    System.out.println("packet n°"+ counter++ + " arrival time: " + tcpPacket.getArrivalTime());
-                }
-
-                System.out.println("-------------------------------------------");
-            }
-
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-
-    }
-
-    private static int bufferSize(Buffer buff){
-        if (buff == null){
-            return 0;
-        } else{
-            return buff.capacity();
-        }
-    }
 }
