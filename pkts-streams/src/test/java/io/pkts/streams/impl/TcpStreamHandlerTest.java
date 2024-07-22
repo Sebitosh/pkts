@@ -1,26 +1,27 @@
 package io.pkts.streams.impl;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.ArrayList;
+
 import io.pkts.Pcap;
 import io.pkts.packet.TCPPacket;
 import io.pkts.streams.Stream;
 import io.pkts.streams.StreamListener;
 import io.pkts.streams.StreamsTestBase;
 import io.pkts.streams.TcpStream;
-import org.junit.After;
+
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.*;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-
 
 /**
  *
  * End-to-end tests for the {@link  TcpStreamHandler} class.
  * The methodology here is to look if the handler identifies the same number
- * of streams as would wireshark for some captured traffic.
+ * of streams as would wireshark for some captured or generated traffic.
  *
  * @author sebastien.amelinclx@gmail.com
  */
@@ -52,10 +53,6 @@ public class TcpStreamHandlerTest {
         });
     }
 
-    @After
-    public void tearDown(){
-    }
-
     /*
     *
     * General case tests with captured samples of traffic.
@@ -64,7 +61,7 @@ public class TcpStreamHandlerTest {
     @Test
     public void testBaseUsage() {
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/tcp_3_streams.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/base_usage_3_streams.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -91,7 +88,7 @@ public class TcpStreamHandlerTest {
     @Test
     public void testUserTraffic() {
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/user_traffic_1.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/user_traffic.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -107,9 +104,9 @@ public class TcpStreamHandlerTest {
 
     // single stream that after closing with an RST packet receives a FIN packet previously unseen
     @Test
-    public void testFinNextBug() {
+    public void testFinAfterRst() {
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/fin_bug.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/fin_after-rst.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -122,11 +119,11 @@ public class TcpStreamHandlerTest {
         }
     }
 
-    // single stream that exchanges keep-alives after closing.
+    // single stream that exchanges keep-alive packets after closing.
     @Test
     public void testKeepAlive() {
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/ack_of_fin_and_rst_passed_closed.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/keep_alive_after_closed.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -169,7 +166,7 @@ public class TcpStreamHandlerTest {
     @Test
     public void testReusingPorts(){
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/ports-reused-basic.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/ports_reused.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -194,9 +191,9 @@ public class TcpStreamHandlerTest {
      * We expect the same behavior from the handler.
      */
     @Test
-    public void testSynDuplicateAfterClosing(){
+    public void testSynDuplicateAfterClosed(){
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/tcp_fin1_syn_dupli.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/syn_duplicate_after_closed.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -219,7 +216,7 @@ public class TcpStreamHandlerTest {
     @Test
     public void testSpuriousRetransmission(){
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/tcp_stream_spurious_retransmit.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/spurious_retransmit.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();
@@ -264,7 +261,7 @@ public class TcpStreamHandlerTest {
     @Test
     public void testLowerSeq(){
         try {
-            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/passed_timeout.pcap"));
+            Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/lower_seq.pcap"));
             pcap.loop(streamHandler);
 
             Map all_streams = streamHandler.getStreams();

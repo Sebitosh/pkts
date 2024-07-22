@@ -1,5 +1,7 @@
 package io.pkts.streams.impl;
 
+import java.util.ArrayList;
+
 import io.hektor.fsm.FSM;
 import io.pkts.Pcap;
 import io.pkts.packet.TCPPacket;
@@ -12,7 +14,6 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
 import org.junit.Test;
-import java.util.ArrayList;
 
 /**
  * Unit tests for the {@link TcpStreamFSM}.
@@ -34,10 +35,9 @@ public class TcpStreamFSMTest {
         stream.start();
     }
 
-
     @Test
     public void testFewEstablishedOnly() {
-        packets = retrievePackets("tcp-fsm/tcp_established_small.pcap");
+        packets = retrievePackets("tcp-fsm/few_established_only.pcap");
         assertEquals(TcpStreamFSM.TcpState.INIT, stream.getState());
         for (TCPPacket packet : packets) {
             stream.onEvent(packet);
@@ -47,7 +47,7 @@ public class TcpStreamFSMTest {
 
     @Test
     public void testEstablishedOnly() {
-        packets = retrievePackets("tcp-fsm/tcp_nosyn_nofin_norst.pcap");
+        packets = retrievePackets("tcp-fsm/established_only.pcap");
         assertEquals(TcpStreamFSM.TcpState.INIT, stream.getState());
         for (TCPPacket packet : packets) {
             stream.onEvent(packet);
@@ -56,8 +56,26 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testFinEndStandard() {
-        packets = retrievePackets("tcp-fsm/tcp_graceful_fin1_fin2.pcap");
+    public void testStartFin() {
+        packets = retrievePackets("tcp-fsm/start_fin.pcap");
+
+        System.out.println(packets.size());
+
+
+        assertEquals(TcpStreamFSM.TcpState.INIT, stream.getState());
+        stream.onEvent(packets.get(0));
+        assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());
+        stream.onEvent(packets.get(1));
+        assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_2, stream.getState());
+        stream.onEvent(packets.get(2));
+        assertEquals(TcpStreamFSM.TcpState.CLOSED_1_CLOSING_2, stream.getState());
+        stream.onEvent(packets.get(3));
+        assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
+    }
+
+    @Test
+    public void testGracefulFin1Fin2() {
+        packets = retrievePackets("tcp-fsm/graceful_fin1_fin2.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -67,7 +85,7 @@ public class TcpStreamFSMTest {
         packets.remove(0);
         packets.remove(0);
 
-        // process established connection until start of gracefull end
+        // process established connection until start of graceful end
         int count = 0;
         for (TCPPacket packet : packets) {
             count++;
@@ -90,8 +108,8 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testFinEndFinAndAckOfFin1() {
-        packets = retrievePackets("tcp-fsm/tcp_fin_ack.pcap");
+    public void testGracefulFin1Fin2PlusAck() {
+        packets = retrievePackets("tcp-fsm/graceful_fin1_fin2_+_ack.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -119,10 +137,9 @@ public class TcpStreamFSMTest {
         assertEquals(TcpStreamFSM.TcpState.CLOSED, stream.getState());
     }
 
-
     @Test
-    public void testFinEndSimultanuousClosing() {
-        packets = retrievePackets("tcp-fsm/tcp_fin_simult.pcap");
+    public void testGracefulSimultaneous() {
+        packets = retrievePackets("tcp-fsm/graceful_simultaneous.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -154,8 +171,8 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testRstEndInit() {
-        packets = retrievePackets("tcp-fsm/tcp_init_rst.pcap");
+    public void testAbruptInit() {
+        packets = retrievePackets("tcp-fsm/abrupt_init.pcap");
 
         assertEquals(TcpStreamFSM.TcpState.INIT, stream.getState());
         stream.onEvent(packets.get(0));
@@ -163,8 +180,8 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testRstEndHanshake() {
-        packets = retrievePackets("tcp-fsm/tcp_handshake_rst.pcap");
+    public void testAbruptHandshake() {
+        packets = retrievePackets("tcp-fsm/abrupt_handshake.pcap");
 
         stream.onEvent(packets.get(0));
         assertEquals(TcpStreamFSM.TcpState.HANDSHAKE, stream.getState());
@@ -175,8 +192,8 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testRstEndEstablished() {
-        packets = retrievePackets("tcp-fsm/tcp_established_rst.pcap");
+    public void testAbruptEstablished() {
+        packets = retrievePackets("tcp-fsm/abrupt_established.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -197,8 +214,8 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testRstEndFinWait1() {
-        packets = retrievePackets("tcp-fsm/tcp_fin1_rst.pcap");
+    public void testAbruptFin1() {
+        packets = retrievePackets("tcp-fsm/abrupt_fin1.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -225,8 +242,8 @@ public class TcpStreamFSMTest {
     }
 
     @Test
-    public void testRstEndFinWait2() {
-        packets = retrievePackets("tcp-fsm/tcp_closed1_rst2.pcap");
+    public void testAbruptFin2() {
+        packets = retrievePackets("tcp-fsm/abrupt_fin2.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -256,10 +273,9 @@ public class TcpStreamFSMTest {
 
     }
 
-    // fails because the new SYN is a duplicate (also marked in wireshark)
     @Test
     public void testSynEndEstablished() {
-        packets = retrievePackets("tcp-fsm/tcp_established_syn.pcap");
+        packets = retrievePackets("tcp-fsm/established_syn_duplicate.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -275,10 +291,9 @@ public class TcpStreamFSMTest {
 
     }
 
-    // fails because the new SYN is a duplicate (also marked in wireshark)
     @Test
-    public void testSynEndFin1() {
-        packets = retrievePackets("tcp-fsm/tcp_fin1_syn.pcap");
+    public void testFin1SynDuplicate() {
+        packets = retrievePackets("tcp-fsm/fin1_syn_duplicate.pcap");
 
         // syn exchange
         stream.onEvent(packets.get(0));
@@ -295,7 +310,6 @@ public class TcpStreamFSMTest {
         assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());
 
     }
-
 
     @Test
     public void testEstablishedSynPortsReused() {
@@ -317,7 +331,7 @@ public class TcpStreamFSMTest {
         stream.onEvent(packets.get(5));
         assertEquals(TcpStreamFSM.TcpState.ESTABLISHED, stream.getState());
 
-        // new syn reusing ports (marked in wireshark), FSM should consider the connection closed
+        // new syn reusing ports (marked in wireshark), FSM should consider the connection closed and ports reused
         stream.onEvent(packets.get(6));
         assertEquals(TcpStreamFSM.TcpState.CLOSED_PORTS_REUSED, stream.getState());
 
@@ -337,13 +351,11 @@ public class TcpStreamFSMTest {
         stream.onEvent(packets.get(3));
         assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());
 
-        // new syn reusing ports (marked in wireshark), FSM should consider the connection closed
+        // new syn reusing ports (marked in wireshark), FSM should consider the connection closed and ports reused
         stream.onEvent(packets.get(4));
         assertEquals(TcpStreamFSM.TcpState.CLOSED_PORTS_REUSED, stream.getState());
 
     }
-
-
 
     private static ArrayList<TCPPacket> retrievePackets(String filename){
         ArrayList<TCPPacket> packets = new ArrayList<>();

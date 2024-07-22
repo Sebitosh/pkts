@@ -38,7 +38,7 @@ public class TcpStreamTest {
     @Test
     public void basicTcpStreamTest() {
         try {
-            Pcap pcap = Pcap.openStream(TcpStreamTest.class.getResourceAsStream("tcp-fsm/tcp_established_small.pcap"));
+            Pcap pcap = Pcap.openStream(TcpStreamTest.class.getResourceAsStream("tcp-fsm/few_established_only.pcap"));
             pcap.loop(packet -> {
                 if (packet.hasProtocol(Protocol.TCP)){
                     TCPPacket TcpPacket = (TCPPacket) packet.getPacket(Protocol.TCP);

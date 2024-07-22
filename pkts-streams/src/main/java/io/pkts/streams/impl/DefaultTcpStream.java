@@ -11,7 +11,6 @@ import io.pkts.streams.impl.tcpFSM.TcpStreamData;
 import io.pkts.streams.impl.tcpFSM.TcpStreamFSM;
 import io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState;
 
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -21,7 +20,6 @@ import java.util.PriorityQueue;
 /**
  * @author sebastien.amelinckx@gmail.com
  */
-
 public class DefaultTcpStream implements TcpStream {
 
     private final PcapGlobalHeader globalHeader;
@@ -29,10 +27,8 @@ public class DefaultTcpStream implements TcpStream {
     private final TransportStreamId id;
     private final long uuid;
 
-    private final PriorityQueue<TCPPacket> packets; // Could not be a Set as packets with equal arrival time
-                                                    // can be different packets.
+    private final PriorityQueue<TCPPacket> packets; // packets are ordered by arrival time and can have the same arrival time
     private final FSM fsm;
-
 
     public DefaultTcpStream(PcapGlobalHeader globalHeader, TransportStreamId id, long uuid, TransitionListener<TcpState> synListener){
         this.globalHeader = globalHeader;

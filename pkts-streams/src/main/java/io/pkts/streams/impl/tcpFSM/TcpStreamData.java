@@ -25,7 +25,6 @@ public class TcpStreamData implements Data {
     private boolean isFin1Terminated = false;
     private boolean isFin2Terminated = false;
 
-
     public TcpStreamData(){}
 
     public void setFin1Seq(TCPPacket packet) {

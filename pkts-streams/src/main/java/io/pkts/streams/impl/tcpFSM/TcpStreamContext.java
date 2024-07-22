@@ -7,5 +7,4 @@ import io.hektor.fsm.Context;
  *
  * @author sebastien.amelinckx@gmail.com
  */
-public class TcpStreamContext implements Context {
-}
+public class TcpStreamContext implements Context {}

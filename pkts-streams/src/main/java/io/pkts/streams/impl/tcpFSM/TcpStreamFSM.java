@@ -42,10 +42,9 @@ public class TcpStreamFSM{
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closed = builder.withState(CLOSED);
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> closedPortsReused = builder.withFinalState(CLOSED_PORTS_REUSED);
 
-
         // define all transitions
         init.transitionTo(HANDSHAKE).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isSynPacket).withAction(TcpStreamFSM::setSyn1);
-        init.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket);
+        init.transitionTo(FIN_WAIT_1).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isFinPacket).withAction(TcpStreamFSM::setFin1);;
         init.transitionTo(CLOSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isRstPacket);
         init.transitionTo(ESTABLISHED).onEvent(TCPPacket.class);
 
@@ -89,13 +88,12 @@ public class TcpStreamFSM{
 
         /*
          * When a stream is in a closed state (gracefully or abruptly), it can still receive packets such
-         * as retransmissions, keep-alives, new RST packets, data, etc. The only case were we should never add a
+         * as retransmissions, keep-alive, new RST packets, data, etc. The only case were we should never add a
          * new packet to the stream is when a new SYN packet is received, which means a new stream is starting.
          * Explaining why here, the terminal state for the FSM is when we observe that ports are reused.
          */
         closed.transitionTo(CLOSED_PORTS_REUSED).onEvent(TCPPacket.class).withGuard(TcpStreamFSM::isNewSynPacket);
         closed.transitionToSelf().onEvent(TCPPacket.class);
-
 
         definition = builder.build();
     }

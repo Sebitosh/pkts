@@ -1,14 +1,5 @@
 package io.pkts.streams.impl;
 
-import io.hektor.fsm.TransitionListener;
-import io.pkts.frame.PcapGlobalHeader;
-import io.pkts.packet.*;
-
-import io.pkts.frame.Frame;
-import io.pkts.framer.FramerManager;
-
-import io.pkts.protocol.Protocol;
-
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -17,6 +8,21 @@ import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.hektor.fsm.TransitionListener;
+
+import io.pkts.frame.PcapGlobalHeader;
+import io.pkts.frame.Frame;
+import io.pkts.framer.FramerManager;
+
+import io.pkts.packet.Packet;
+import io.pkts.packet.IPPacket;
+import io.pkts.packet.TCPPacket;
+import io.pkts.packet.IPv4Packet;
+import io.pkts.packet.IPv6Packet;
+import io.pkts.packet.PacketParseException;
+
+import io.pkts.protocol.Protocol;
+
 import io.pkts.streams.FragmentListener;
 import io.pkts.streams.StreamHandler;
 import io.pkts.streams.StreamListener;
@@ -24,9 +30,8 @@ import io.pkts.streams.SipStatistics;
 import io.pkts.streams.Stream;
 import io.pkts.streams.StreamId;
 import io.pkts.streams.TcpStream;
-
-
 import io.pkts.streams.impl.tcpFSM.TcpStreamFSM.TcpState;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,10 +39,10 @@ import org.slf4j.LoggerFactory;
  * A {@link StreamHandler} for TCP conversations.
  * The handler will figure out if the received {@link Frame} contains a TCP packet and if so,
  * will parse the {@link Frame} in a {@link TCPPacket} and add it to the corresponding Stream.
- * A stream of TCP packets is identified by a 5-tuple (src addr, dest addr, src port, dest port, TCP protocol),
- * with the additional catch that a stream CAN be ended either by a TCP packet with the RST flag, or by a FIN 4-way
- * handshake (or a 3-way handshake with FIN+ACK). A stream of TCP packets CAN be started with a SYN 3-way handshake,
- * but in case a new 5-tuple is observed with no 3-way handshake it will be assumed that a new stream has started.
+ * A {@link TcpStream} is identified by a 5-tuple (src addr, dest addr, src port, dest port, TCP protocol),
+ * with the additional catch that a stream can see it's 5-tuple réused for another connection.
+ * A {@link  TcpStream} CAN be started with a SYN 3-way handshake, but in case a new 5-tuple is observed
+ * with no 3-way handshake it will be assumed that a new stream has started.
  * IP fragmentation is not handled by this class, but adding a {@link FragmentListener} is supported.
  *
  * @author sebastien.amelinckx@gmail.com
@@ -119,12 +124,12 @@ public class TcpStreamHandler implements StreamHandler {
     }
 
     @Override
-    public Map<StreamId, ? extends Stream> getStreams() {
+    public Map<StreamId, ? extends Stream<TCPPacket>> getStreams() {
         return this.streams;
     }
 
     @Override
-    public boolean nextPacket(Packet packet) throws IOException {
+    public boolean nextPacket(Packet packet){
         try {
             if (packet.hasProtocol(Protocol.IPv4)) { // handle IPv4 fragmentation notification
                 final IPPacket ip = (IPPacket) packet.getPacket(Protocol.IPv4);
@@ -179,7 +184,7 @@ public class TcpStreamHandler implements StreamHandler {
             } else {
                 stream.addPacket(tcpPacket);
                 this.notifyPacketReceived(stream, tcpPacket);
-                if (stream.Ended()){ // in case the stream is already closed, might call each time endStream when a new packet is seen.
+                if (stream.Ended()){ // in case the stream is already closed, might call endStream multiple times
                     this.notifyEndStream(stream);
                 }
             }
@@ -188,7 +193,6 @@ public class TcpStreamHandler implements StreamHandler {
             e.printStackTrace();
         }
     }
-
 
     private IPPacket handleFragmentation(final IPPacket ipPacket) {
         if (this.fragmentListener == null) {
@@ -245,7 +249,7 @@ public class TcpStreamHandler implements StreamHandler {
         PcapGlobalHeader header = assignGlobalHeader(packet.getParentPacket().getParentPacket());
         TcpStream stream = new DefaultTcpStream(header, pktStreamId, uuid_counter++, new SynListener());
 
-        this.activeTcpStreams.put(pktStreamId, stream); // if key is same, value is replaced. So, when ports reused, the old stream is replaced and no packets will be added to it anymore.
+        this.activeTcpStreams.put(pktStreamId, stream); // stream replaced if 5-tuple already present
         this.streams.put(new LongStreamId(stream.getUuid()), stream);
         stream.addPacket(packet);
         this.notifyStartStream(stream, packet);

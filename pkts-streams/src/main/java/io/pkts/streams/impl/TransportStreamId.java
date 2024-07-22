@@ -10,7 +10,7 @@ import java.util.Objects;
  * Represents the 5-tuple identifier for a transport layer stream. This 5-tuple consists
  * of the source and destination IP addresses, source and destination port numbers,
  * and the transport layer protocol (TCP/UDP/...). It's important to note that a same 5-tuple may be used
- * multiple times in a packet capture, but might belong te different streams (closed connections, timeouts, etc...).
+ * multiple times in a packet capture, but might belong to different streams.
  *
  * @author sebastien.amelinckx@gmail.com
  */
@@ -38,7 +38,6 @@ public class TransportStreamId implements StreamId {
         this.destinationPort = packet.getDestinationPort();
         this.protocol = packet.getProtocol();
     }
-
 
     public TransportStreamId oppositeFlowDirection(){
         return new TransportStreamId(this.destinationAddress, this.sourceAddress, this.destinationPort, this.sourcePort, this.protocol);
