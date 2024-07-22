@@ -77,7 +77,7 @@ public class TcpStreamTest {
     public void StreamExample002Test() throws IOException, FramingException {
 
         // Step 1 - Open the pcap containing our traffic.
-        final Pcap pcap = Pcap.openStream(TcpStreamTest.class.getResourceAsStream("tcp-streams/my_tcp_traffic.pcap"));
+        final Pcap pcap = Pcap.openStream(TcpStreamTest.class.getResourceAsStream("tcp-streams/example_tcp_traffic.pcap"));
         // Step 2 - Instead of implementing our own PacketHandler we will be
         //          using a TcpStreamHandler provided for us by the io.pkts.streams
         //          library. It has a StreamHandler (which obviously
