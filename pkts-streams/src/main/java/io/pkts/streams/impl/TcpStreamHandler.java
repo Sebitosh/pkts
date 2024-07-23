@@ -182,9 +182,10 @@ public class TcpStreamHandler implements StreamHandler {
             if (stream == null) {
                 startNewStream(tcpPacket);
             } else {
+                final boolean isAlreadyClosed = stream.Ended();
                 stream.addPacket(tcpPacket);
                 this.notifyPacketReceived(stream, tcpPacket);
-                if (stream.Ended()){ // in case the stream is already closed, might call endStream multiple times
+                if (!isAlreadyClosed && stream.Ended()){ // call endStream only once when the last packet closed it
                     this.notifyEndStream(stream);
                 }
             }

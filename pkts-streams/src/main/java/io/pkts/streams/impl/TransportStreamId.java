@@ -84,7 +84,8 @@ public class TransportStreamId implements StreamId {
 
     @Override
     public boolean equals(final Object obj){
-        if (obj instanceof TransportStreamId other){
+        if (obj instanceof TransportStreamId){
+            TransportStreamId other = (TransportStreamId) obj;
             return (other.getSourceAddress().equals(this.sourceAddress)
                     && other.getDestinationAddress().equals(this.destinationAddress)
                     && other.getSourcePort() == this.sourcePort
