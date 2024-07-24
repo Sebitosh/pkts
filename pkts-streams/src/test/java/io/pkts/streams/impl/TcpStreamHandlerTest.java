@@ -7,10 +7,7 @@ import java.util.ArrayList;
 
 import io.pkts.Pcap;
 import io.pkts.packet.TCPPacket;
-import io.pkts.streams.Stream;
-import io.pkts.streams.StreamListener;
-import io.pkts.streams.StreamsTestBase;
-import io.pkts.streams.TcpStream;
+import io.pkts.streams.*;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -64,9 +61,9 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/base_usage_3_streams.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
-            Set<LongStreamId> keys = all_streams.keySet();
+            Set<StreamId> keys = all_streams.keySet();
             assertEquals(3, keys.size());
 
             Collection<TcpStream> streams = all_streams.values();
@@ -91,9 +88,9 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/user_traffic.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
-            Set<LongStreamId> keys = all_streams.keySet();
+            Set<StreamId> keys = all_streams.keySet();
             assertEquals(273, keys.size());
 
         } catch (Exception e){
@@ -109,7 +106,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/fin_after-rst.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(1, all_streams.size());
 
@@ -126,7 +123,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/keep_alive_after_closed.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(1, all_streams.size());
 
@@ -143,7 +140,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/out_of_order.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(1, all_streams.size());
 
@@ -169,7 +166,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/ports_reused.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(2, all_streams.size());
 
@@ -196,7 +193,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/syn_duplicate_after_closed.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(1, all_streams.size());
 
@@ -219,7 +216,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/spurious_retransmit.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(2, all_streams.size());
 
@@ -244,7 +241,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/passed_timeout.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(1, all_streams.size());
         } catch (Exception e){
@@ -264,7 +261,7 @@ public class TcpStreamHandlerTest {
             Pcap pcap = Pcap.openStream(StreamsTestBase.class.getResourceAsStream("tcp-streams/lower_seq.pcap"));
             pcap.loop(streamHandler);
 
-            Map all_streams = streamHandler.getStreams();
+            Map<StreamId, TcpStream> all_streams = streamHandler.getStreams();
 
             assertEquals(1, all_streams.size());
         } catch (Exception e){

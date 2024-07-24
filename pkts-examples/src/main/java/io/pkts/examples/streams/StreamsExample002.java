@@ -4,6 +4,7 @@ import io.pkts.Pcap;
 import io.pkts.framer.FramingException;
 import io.pkts.packet.TCPPacket;
 import io.pkts.streams.Stream;
+import io.pkts.streams.StreamId;
 import io.pkts.streams.StreamListener;
 import io.pkts.streams.TcpStream;
 import io.pkts.streams.impl.TcpStreamHandler;
@@ -78,7 +79,7 @@ public class StreamsExample002 {
         pcap.loop(streamHandler);
 
         // Step 5 - Do whatever with the streams and packets inside
-        Map allStreams = streamHandler.getStreams();
+        Map<StreamId, TcpStream> allStreams = streamHandler.getStreams();
 
         ArrayList<TcpStream> streams = new ArrayList<TcpStream>(allStreams.values());
 

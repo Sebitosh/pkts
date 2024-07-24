@@ -124,7 +124,7 @@ public class TcpStreamHandler implements StreamHandler {
     }
 
     @Override
-    public Map<StreamId, ? extends Stream<TCPPacket>> getStreams() {
+    public Map<StreamId, TcpStream> getStreams() {
         return this.streams;
     }
 

@@ -118,7 +118,7 @@ public class TcpStreamTest {
         pcap.loop(streamHandler);
 
         // Step 5 - Do whatever with the streams and packets inside
-        Map allStreams = streamHandler.getStreams();
+        Map<StreamId, TcpStream> allStreams = streamHandler.getStreams();
 
         ArrayList<TcpStream> streams = new ArrayList<TcpStream>(allStreams.values());
 
