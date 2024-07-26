@@ -59,9 +59,6 @@ public class TcpStreamFSMTest {
     public void testStartFin() {
         packets = retrievePackets("tcp-fsm/start_fin.pcap");
 
-        System.out.println(packets.size());
-
-
         assertEquals(TcpStreamFSM.TcpState.INIT, stream.getState());
         stream.onEvent(packets.get(0));
         assertEquals(TcpStreamFSM.TcpState.FIN_WAIT_1, stream.getState());

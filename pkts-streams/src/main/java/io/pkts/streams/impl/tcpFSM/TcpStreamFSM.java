@@ -28,7 +28,6 @@ public class TcpStreamFSM{
         final FSMBuilder<TcpState, TcpStreamContext, TcpStreamData> builder=
                 FSM.of(TcpState.class).ofContextType(TcpStreamContext.class).withDataType(TcpStreamData.class);
 
-        builder.withFriendlyName("TCP_stream");
 
         // define all states for the builder
         final StateBuilder<TcpState, TcpStreamContext, TcpStreamData> init = builder.withInitialState(INIT);
